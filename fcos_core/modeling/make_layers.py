@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from fcos_core.config import cfg
-from fcos_core.layers import Conv2d
+from fcos_core.layers import Conv2d, LocalContextNorm
 from fcos_core.modeling.poolers import Pooler
 
 
@@ -40,6 +40,11 @@ def group_norm(out_channels, affine=True, divisor=1):
         affine
     )
 
+def local_norm(out_channels, stride=1, divisor=1):
+    dim_per_gp = cfg.MODEL.GROUP_NORM.DIM_PER_GP // divisor
+    num_groups = cfg.MODEL.GROUP_NORM.NUM_GROUPS // divisor
+    eps = cfg.MODEL.GROUP_NORM.EPSILON # default: 1e-5
+    return LocalContextNorm(out_channels, dim_per_gp, (stride*5, stride*5), eps)
 
 def make_conv3x3(
     in_channels, 
@@ -65,11 +70,15 @@ def make_conv3x3(
         )
     else:
         torch.nn.init.normal_(conv.weight, std=0.01)
+    """
     if not use_gn:
         nn.init.constant_(conv.bias, 0)
+    """
     module = [conv,]
     if use_gn:
         module.append(group_norm(out_channels))
+    else:
+        module.append(local_norm(out_channels, stride))
     if use_relu:
         module.append(nn.ReLU(inplace=True))
     if len(module) > 1:
