@@ -24,7 +24,13 @@ dist/
 
 # Pycharm editor settings
 .idea
+*.jpg
+*.png
+*.jpeg
 
 # project dirs
 /datasets
 /models
+cocoapi
+fcos.egg-info/
+docker/

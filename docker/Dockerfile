@@ -8,11 +8,12 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 # install basics
 RUN apt-get update -y \
  && apt-get install -y apt-utils git curl ca-certificates bzip2 cmake tree htop bmon iotop g++ \
- && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev
+ && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev wget
 
 # Install Miniconda
-RUN curl -so /miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh \
- && chmod +x /miniconda.sh \
+RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+ && chmod +x /Miniconda3-latest-Linux-x86_64.sh \
+ && mv Miniconda3-latest-Linux-x86_64.sh miniconda.sh \
  && /miniconda.sh -b -p /miniconda \
  && rm /miniconda.sh
 
@@ -33,13 +34,13 @@ RUN pip install ninja yacs cython matplotlib opencv-python tqdm
 
 # Install PyTorch 1.0 Nightly
 ARG CUDA
-RUN conda install pytorch-nightly cudatoolkit=${CUDA} -c pytorch \
+RUN conda install pytorch cudatoolkit=${CUDA} torchvision -c pytorch \
  && conda clean -ya
 
 # Install TorchVision master
-RUN git clone https://github.com/pytorch/vision.git \
- && cd vision \
- && python setup.py install
+#RUN git clone https://github.com/pytorch/vision.git \
+# && cd vision \
+# && python setup.py install
 
 # install pycocotools
 RUN git clone https://github.com/cocodataset/cocoapi.git \
@@ -47,10 +48,16 @@ RUN git clone https://github.com/cocodataset/cocoapi.git \
  && python setup.py build_ext install
 
 # install PyTorch Detection
-ARG FORCE_CUDA="1"
-ENV FORCE_CUDA=${FORCE_CUDA}
-RUN git clone https://github.com/facebookresearch/maskrcnn-benchmark.git \
- && cd maskrcnn-benchmark \
- && python setup.py build develop
+#ARG FORCE_CUDA="1"
+#ENV FORCE_CUDA=${FORCE_CUDA}
+#RUN git clone https://github.com/facebookresearch/maskrcnn-benchmark.git \
+# && cd maskrcnn-benchmark \
+# && python setup.py build develop
 
-WORKDIR /maskrcnn-benchmark
+#ARG FORCE_CUDA="1"
+#ENV FORCE_CUDA=${FORCE_CUDA}
+RUN git clone https://github.com/tianzhi0549/FCOS.git \
+  && cd FCOS \
+  && python setup.py build develop --no-deps \
+  && ln -s ../cocoapi cocoapi
+WORKDIR /FCOS

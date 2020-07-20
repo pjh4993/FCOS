@@ -324,8 +324,8 @@ class FCOS(object):
 
         self.overlay_boxes(im, bbox_list)
         self.overlay_class_names(im, bbox_list)
-        cv2.imshow("Detections", im)
-        cv2.waitKey()
+        cv2.imwrite("Detections.jpg", im)
+        #cv2.waitKey()
 
         return im
 
@@ -371,8 +371,9 @@ class FCOS(object):
         for box, score, label in zip(boxes, scores, labels):
             x, y = box[:2]
             s = template.format(label, score)
+            print(x, y)
             cv2.putText(
-                image, s, (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 255, 255), 1
+                image, s, (int(x), int(y)+15), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 255, 255), 1
             )
 
         return image
