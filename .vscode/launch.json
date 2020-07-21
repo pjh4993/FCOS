@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Training FCOS",
+            "type": "python",
+            "request": "launch",
+            "program": "train_net.py",
+            "console": "integratedTerminal",
+            "args" : [
+                "--config-file", "configs/fcos/fcos_R_50_FPN_1x.yaml"
+            ]
+
+        },
+        {
+            "name": "Inference FCOS",
+            "type": "python",
+            "request": "launch",
+            "program": "fcos/bin/fcos.py",
+            "console": "integratedTerminal",
+            "args": [
+                "http://farm4.staticflickr.com/3018/2804086107_34ab25a383_z.jpg"
+            ]
+        }
+    ]
+}

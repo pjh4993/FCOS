@@ -31,6 +31,6 @@ dist/
 # project dirs
 /datasets
 /models
-cocoapi
+/cocoapi
 fcos.egg-info/
 docker/

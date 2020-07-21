@@ -69,8 +69,26 @@ class FCOSPostProcessor(torch.nn.Module):
         pre_nms_top_n = candidate_inds.view(N, -1).sum(1)
         pre_nms_top_n = pre_nms_top_n.clamp(max=self.pre_nms_top_n)
 
+        lr_reg = box_regression[:,:,[0,2]]
+        bt_reg = box_regression[:,:,[1,3]]
+        rbox_centerness = torch.sqrt((torch.min(lr_reg, 2)[0] / (torch.max(lr_reg, 2)[0] + 1e-5)) * 
+            (torch.min(bt_reg, 2)[0] / (torch.max(bt_reg, 2)[0] + 1e-5)))
+        
+        """
+        print(torch.mean(torch.abs(centerness - rbox_centerness)))
+        centerness = rbox_centerness
+        """
+
         # multiply the classification scores with centerness scores
+
         box_cls = box_cls * centerness[:, :, None]
+        #box_cls = box_cls * rbox_centerness[:, :, None]
+        """
+        test = centerness - rbox_centerness
+        test = torch.pow(torch.ones_like(test) - torch.abs(test), -0.7)
+        box_cls = box_cls * test[:, :, None] * centerness[:,:,None]
+        """
+        #box_cls = box_cls * test[:, :, None]
 
         results = []
         for i in range(N):
@@ -84,6 +102,12 @@ class FCOSPostProcessor(torch.nn.Module):
 
             per_box_regression = box_regression[i]
             per_box_regression = per_box_regression[per_box_loc]
+
+            per_centerness = centerness[i]
+            per_centerness = per_centerness[per_box_loc]
+            per_regcenter = rbox_centerness[i]
+            per_regcenter = per_regcenter[per_box_loc]
+
             per_locations = locations[per_box_loc]
 
             per_pre_nms_top_n = pre_nms_top_n[i]
@@ -104,6 +128,9 @@ class FCOSPostProcessor(torch.nn.Module):
 
             h, w = image_sizes[i]
             boxlist = BoxList(detections, (int(w), int(h)), mode="xyxy")
+            boxlist.add_field("centerness", per_centerness)
+            boxlist.add_field("reg_center", per_regcenter)
+            boxlist.add_field("locations",per_locations)
             boxlist.add_field("labels", per_class)
             boxlist.add_field("scores", torch.sqrt(per_box_cls))
             boxlist = boxlist.clip_to_image(remove_empty=False)
@@ -125,6 +152,9 @@ class FCOSPostProcessor(torch.nn.Module):
         """
         sampled_boxes = []
         for _, (l, o, b, c) in enumerate(zip(locations, box_cls, box_regression, centerness)):
+            #c = torch.ones_like(c)
+            #c = torch.zeros_like(c)
+            #c = -c
             sampled_boxes.append(
                 self.forward_for_single_feature_map(
                     l, o, b, c, image_sizes

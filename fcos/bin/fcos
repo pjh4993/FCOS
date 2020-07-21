@@ -15,11 +15,15 @@ def pretty_print(bbox_results):
             item["label_name"].ljust(max_label_name_len),
             item["score"],
         ), end="")
-        print("bbox: {:.1f} {:.1f} {:.1f} {:.1f}".format(
+        print("bbox: {:.1f} {:.1f} {:.1f} {:.1f}    ".format(
             item["box"][0],
             item["box"][1],
             item["box"][2],
             item["box"][3],
+        ), end="")
+        print("centerness : {:.1f} , reg_center : {:.1f}".format(
+            item["centerness"],
+            item["reg_center"]
         ))
 
 

@@ -229,14 +229,20 @@ class FCOS(object):
             label_id = int(predictions.get_field("labels")[i])
             label_name = self.CATEGORIES[label_id]
             score = float(predictions.get_field("scores")[i])
+            location = [float(_) for _ in predictions.get_field("locations")[i]]
+            centerness = float(predictions.get_field("centerness")[i])
+            reg_center = float(predictions.get_field("reg_center")[i])
 
+            #if label_name == "car":
             results.append({
                 "box": bbox,
                 "score": score,
                 "label_name": label_name,
-                "label_id": label_id
+                "label_id": label_id,
+                "location" : location,
+                "centerness" : centerness,
+                "reg_center" : reg_center
             })
-
         return results
 
     def _py_bbox_list_to_bbox_list(self, py_bbox_list, im_size):
@@ -248,14 +254,23 @@ class FCOS(object):
         bboxes = []
         labels = []
         scores = []
+        locations = []
+        centerness = []
+        reg_center = []
         for item in py_bbox_list:
             bboxes.append(item["box"])
             labels.append(item["label_id"])
             scores.append(item["score"])
+            locations.append(item["location"])
+            centerness.append(item["centerness"])
+            reg_center.append(item["reg_center"])
 
         box_list = BoxList(torch.tensor(bboxes, dtype=torch.float32), im_size)
         box_list.add_field("labels", torch.tensor(labels, dtype=torch.long))
         box_list.add_field("scores", torch.tensor(scores, dtype=torch.float32))
+        box_list.add_field("locations",torch.tensor(locations, dtype=torch.float32))
+        box_list.add_field("centerness", torch.tensor(centerness, dtype=torch.float32))
+        box_list.add_field("reg_center", torch.tensor(reg_center, dtype=torch.float32))
 
         return box_list
 
@@ -340,15 +355,35 @@ class FCOS(object):
         """
         labels = predictions.get_field("labels")
         boxes = predictions.bbox
+        locations = predictions.get_field("locations")
+        centerness = predictions.get_field("centerness").tolist()
+        reg_center = predictions.get_field("reg_center").tolist()
+        centerness_template = "centerness : {:.1f} , reg_center : {:.1f}"
+        gy = 30
 
         colors = self.compute_colors_for_labels(labels).tolist()
 
-        for box, color in zip(boxes, colors):
+        cv2.rectangle(
+            image, (0,15), (300, 15*len(boxes)+30), (100,100,100, 0.5), -1
+        )
+        for box, location, color, cen, reg_cen in zip(boxes, locations, colors, centerness, reg_center):
             box = box.to(torch.int64)
+            location = location.to(torch.int64)
+            #tmp_color = [int(box[0])] + location.tolist()
+            #color = [3**(c+t) % 255 for c, t in zip(color, tmp_color)]
             top_left, bottom_right = box[:2].tolist(), box[2:].tolist()
             cv2.rectangle(
                 image, tuple(top_left), tuple(bottom_right), tuple(color), 2
             )
+            point = location.tolist()
+            cv2.circle(
+                image, tuple(point), 10, tuple(color), 3
+            )
+            s = centerness_template.format(cen, reg_cen)
+            cv2.putText(
+                image, s, (0, gy), cv2.FONT_HERSHEY_SIMPLEX, .5, tuple(color), 1
+            )
+            gy+=15
 
         return image
 
@@ -366,12 +401,10 @@ class FCOS(object):
         labels = predictions.get_field("labels").tolist()
         labels = [self.CATEGORIES[i] for i in labels]
         boxes = predictions.bbox
-
         template = "{}: {:.2f}"
         for box, score, label in zip(boxes, scores, labels):
             x, y = box[:2]
             s = template.format(label, score)
-            print(x, y)
             cv2.putText(
                 image, s, (int(x), int(y)+15), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 255, 255), 1
             )
@@ -419,5 +452,4 @@ if __name__ == "__main__":
     im = cv2.resize(im, (0, 0), fx=f, fy=f)
 
     bbox_results = fcos.detect(im)
-
     fcos.show_bboxes(im, bbox_results)
