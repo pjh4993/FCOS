@@ -76,8 +76,10 @@ def make_conv3x3(
     """
     module = [conv,]
     if use_gn:
+        exit()
         module.append(group_norm(out_channels))
     else:
+        print("local_norm_appended")
         module.append(local_norm(out_channels, stride))
     if use_relu:
         module.append(nn.ReLU(inplace=True))
