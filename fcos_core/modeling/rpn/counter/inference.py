@@ -11,7 +11,7 @@ from fcos_core.structures.boxlist_ops import boxlist_ml_nms
 from fcos_core.structures.boxlist_ops import remove_small_boxes
 
 
-class FCOSPostProcessor(torch.nn.Module):
+class CounterPostProcessor(torch.nn.Module):
     """
     Performs post-processing on the outputs of the RetinaNet boxes.
     This is only used in the testing.
@@ -36,7 +36,7 @@ class FCOSPostProcessor(torch.nn.Module):
             num_classes (int)
             box_coder (BoxCoder)
         """
-        super(FCOSPostProcessor, self).__init__()
+        super(CounterPostProcessor, self).__init__()
         self.pre_nms_thresh = pre_nms_thresh
         self.pre_nms_top_n = pre_nms_top_n
         self.nms_thresh = nms_thresh
@@ -142,7 +142,7 @@ class FCOSPostProcessor(torch.nn.Module):
 
         return results
 
-    def forward(self, locations, box_cls, box_regression, centerness, image_sizes):
+    def forward(self, locations, object_count, image_sizes):
         """
         Arguments:
             anchors: list[list[BoxList]]
@@ -154,15 +154,14 @@ class FCOSPostProcessor(torch.nn.Module):
                 applying box decoding and NMS
         """
         sampled_boxes = []
-        for _, (l, o, b, c) in enumerate(zip(locations, box_cls, box_regression, centerness)):
-            #c = torch.ones_like(c)
-            #c = torch.zeros_like(c)
-            #c = -c
+        for _, (l, o) in enumerate(zip(locations, object_count)):
+            """
             sampled_boxes.append(
                 self.forward_for_single_feature_map(
-                    l, o, b, c, image_sizes
+                    l, o, image_sizes
                 )
             )
+            """
 
         boxlists = list(zip(*sampled_boxes))
         boxlists = [cat_boxlist(boxlist) for boxlist in boxlists]
@@ -197,14 +196,14 @@ class FCOSPostProcessor(torch.nn.Module):
         return results
 
 
-def make_fcos_postprocessor(config):
+def make_counter_postprocessor(config):
     pre_nms_thresh = config.MODEL.FCOS.INFERENCE_TH
     pre_nms_top_n = config.MODEL.FCOS.PRE_NMS_TOP_N
     nms_thresh = config.MODEL.FCOS.NMS_TH
     fpn_post_nms_top_n = config.TEST.DETECTIONS_PER_IMG
     bbox_aug_enabled = config.TEST.BBOX_AUG.ENABLED
 
-    box_selector = FCOSPostProcessor(
+    count_mapper = CounterPostProcessor(
         pre_nms_thresh=pre_nms_thresh,
         pre_nms_top_n=pre_nms_top_n,
         nms_thresh=nms_thresh,
@@ -214,4 +213,4 @@ def make_fcos_postprocessor(config):
         bbox_aug_enabled=bbox_aug_enabled
     )
 
-    return box_selector
+    return count_mapper

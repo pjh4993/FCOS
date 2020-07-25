@@ -3,6 +3,7 @@ import torch
 
 from .bounding_box import BoxList
 
+from fcos_core.layers import hand_nms as _hand_nms
 from fcos_core.layers import nms as _box_nms
 from fcos_core.layers import ml_nms as _box_ml_nms
 
@@ -52,7 +53,8 @@ def boxlist_ml_nms(boxlist, nms_thresh, max_proposals=-1,
     boxes = boxlist.bbox
     scores = boxlist.get_field(score_field)
     labels = boxlist.get_field(label_field)
-    keep = _box_ml_nms(boxes, scores, labels.float(), nms_thresh)
+    locations = boxlist.get_field("locations")
+    keep = _box_ml_nms(boxes, scores, labels.float(), locations, nms_thresh)
     if max_proposals > 0:
         keep = keep[: max_proposals]
     boxlist = boxlist[keep]

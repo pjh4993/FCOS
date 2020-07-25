@@ -11,7 +11,7 @@
             "program": "train_net.py",
             "console": "integratedTerminal",
             "args" : [
-                "--config-file", "configs/fcos/fcos_R_50_FPN_1x.yaml"
+                "--config-file", "configs/counter/counter_R_50_FPN_1x.yaml"
             ]
 
         },
@@ -19,7 +19,7 @@
             "name": "Inference FCOS",
             "type": "python",
             "request": "launch",
-            "program": "fcos/bin/fcos.py",
+            "program": "/root/anaconda3/envs/FCOS/bin/fcos",
             "console": "integratedTerminal",
             "args": [
                 "http://farm4.staticflickr.com/3018/2804086107_34ab25a383_z.jpg"

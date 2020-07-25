@@ -7,6 +7,14 @@
 
 #include <vector>
 #include <iostream>
+#define BOX_DIM 8
+/*
+a[0 ~ 3]  : regressed box left, top, right, bottom
+a[4]      : confidence of box
+a[5]      : label
+a[6 ~ 7]  : loction of regressed posiiton (x, y)
+a[8]      : centerness of box
+*/
 
 int const threadsPerBlock = sizeof(unsigned long long) * 8;
 
@@ -23,6 +31,36 @@ __device__ inline float devIoU(float const * const a, float const * const b) {
   return interS / (Sa + Sb - interS);
 }
 
+__device__ inline int devPredLoc(float const * const a, float const * const b) {
+  if (a[5] != b[5]){
+    return 0;
+  }
+  /*
+  //a box's center and b box's center
+  //check centerness of each other and if they are same they are detecting same object
+  float a_hor = (a[0] + a[2])/2, a_ver = (a[1] + a[3])/2;
+  float b_hor = (b[0] + b[2])/2, b_ver = (b[1] + b[3])/2;
+
+  float center_dist = (a_hor - b_hor)*(a_hor - b_hor) + (a_ver - b_ver) * (a_ver - b_ver);
+  center_dist = sqrt(center_dist);
+  
+  return 0;
+  */
+
+  float left = max(a[0], b[0]), right = min(a[2], b[2]);
+  float top = max(a[1], b[1]), bottom = min(a[3], b[3]);
+  int retA=1, retB = 1;
+  if(a[6] > left && a[6] < right && a[7] < bottom && a[7] > top){
+    retA = 0;
+  }
+  if(b[6] > left && b[6] < right && b[7] < bottom && b[7] > top){
+    retB = 0;
+  }
+  //return 0 -> nms out, return 1 -> nms stay ???
+  return 1;
+  return (retA + retB) == 0;
+}
+
 __global__ void ml_nms_kernel(const int n_boxes, const float nms_overlap_thresh,
                            const float *dev_boxes, unsigned long long *dev_mask) {
   const int row_start = blockIdx.y;
@@ -35,26 +73,32 @@ __global__ void ml_nms_kernel(const int n_boxes, const float nms_overlap_thresh,
   const int col_size =
         min(n_boxes - col_start * threadsPerBlock, threadsPerBlock);
 
-  __shared__ float block_boxes[threadsPerBlock * 6];
+  __shared__ float block_boxes[threadsPerBlock * BOX_DIM];
   if (threadIdx.x < col_size) {
-    block_boxes[threadIdx.x * 6 + 0] =
-        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 6 + 0];
-    block_boxes[threadIdx.x * 6 + 1] =
-        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 6 + 1];
-    block_boxes[threadIdx.x * 6 + 2] =
-        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 6 + 2];
-    block_boxes[threadIdx.x * 6 + 3] =
-        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 6 + 3];
-    block_boxes[threadIdx.x * 6 + 4] =
-        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 6 + 4];
-    block_boxes[threadIdx.x * 6 + 5] =
-        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 6 + 5];
+    block_boxes[threadIdx.x * BOX_DIM + 0] =
+        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * BOX_DIM + 0];
+    block_boxes[threadIdx.x * BOX_DIM + 1] =
+        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * BOX_DIM + 1];
+    block_boxes[threadIdx.x * BOX_DIM + 2] =
+        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * BOX_DIM + 2];
+    block_boxes[threadIdx.x * BOX_DIM + 3] =
+        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * BOX_DIM + 3];
+    block_boxes[threadIdx.x * BOX_DIM + 4] =
+        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * BOX_DIM + 4];
+    block_boxes[threadIdx.x * BOX_DIM + 5] =
+        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * BOX_DIM + 5];
+    block_boxes[threadIdx.x * BOX_DIM + 6] =
+        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * BOX_DIM + 6];
+    block_boxes[threadIdx.x * BOX_DIM + 7] =
+        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * BOX_DIM + 7];
+
+
   }
   __syncthreads();
 
   if (threadIdx.x < row_size) {
     const int cur_box_idx = threadsPerBlock * row_start + threadIdx.x;
-    const float *cur_box = dev_boxes + cur_box_idx * 6;
+    const float *cur_box = dev_boxes + cur_box_idx * BOX_DIM;
     int i = 0;
     unsigned long long t = 0;
     int start = 0;
@@ -62,7 +106,7 @@ __global__ void ml_nms_kernel(const int n_boxes, const float nms_overlap_thresh,
       start = threadIdx.x + 1;
     }
     for (i = start; i < col_size; i++) {
-      if (devIoU(cur_box, block_boxes + i * 6) > nms_overlap_thresh) {
+      if ((devIoU(cur_box, block_boxes + i * BOX_DIM) > nms_overlap_thresh) && devPredLoc(cur_box, block_boxes + i* BOX_DIM)) {
         t |= 1ULL << i;
       }
     }
@@ -71,7 +115,7 @@ __global__ void ml_nms_kernel(const int n_boxes, const float nms_overlap_thresh,
   }
 }
 
-// boxes is a N x 6 tensor
+// boxes is a N x BOX_DIM tensor
 at::Tensor ml_nms_cuda(const at::Tensor boxes, float nms_overlap_thresh) {
   using scalar_t = float;
   AT_ASSERTM(boxes.type().is_cuda(), "boxes must be a CUDA tensor");

@@ -29,6 +29,7 @@ fcos/configs/fcos_syncbn_bs32_c128_MNV2_FPN_1x.yaml
 fcos/configs/fcos_syncbn_bs32_c128_ms_MNV2_FPN_1x.yaml
 fcos/configs/fcos_syncbn_bs64_c128_ms_MNV2_FPN_1x.yaml
 fcos_core/__init__.py
+fcos_core/custom_nms.py
 fcos_core/config/__init__.py
 fcos_core/config/defaults.py
 fcos_core/config/paths_catalog.py
@@ -139,6 +140,10 @@ fcos_core/modeling/rpn/inference.py
 fcos_core/modeling/rpn/loss.py
 fcos_core/modeling/rpn/rpn.py
 fcos_core/modeling/rpn/utils.py
+fcos_core/modeling/rpn/counter/__init__.py
+fcos_core/modeling/rpn/counter/counter.py
+fcos_core/modeling/rpn/counter/inference.py
+fcos_core/modeling/rpn/counter/loss.py
 fcos_core/modeling/rpn/fcos/__init__.py
 fcos_core/modeling/rpn/fcos/fcos.py
 fcos_core/modeling/rpn/fcos/inference.py

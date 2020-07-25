@@ -68,7 +68,44 @@ def do_train(
         images = images.to(device)
         targets = [target.to(device) for target in targets]
 
-        loss_dict = model(images, targets)[0]
+        loss_dict, proposal = model(images, targets)
+
+        PIXEL_MEAN =  [-102.9801, -115.9465, -122.7717]
+        PIXEL_STD = [1.0, 1.0, 1.0]
+        unnorm = T.Normalize(mean=PIXEL_MEAN, std=PIXEL_STD)
+
+        new_image = unnorm(images.tensors[0])
+        new_image = new_image.cpu()[[2,1,0],:,:]/255
+        cmaps= [
+            'Purples', 'Blues', 'Greens', 'Oranges', 'Reds',
+            'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu',
+            'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn']
+        fpl = 8
+        img_size = images.tensors[0].shape[1:]
+        up = torch.nn.UpsamplingNearest2d(size=(img_size[0],img_size[1]))
+        heatmap_image, heat_axe = plt.subplots(nrows=1, ncols=5)
+        for l in range(len(proposal)):
+            fig_image, axe_image = plt.subplots(nrows=1, ncols=1)
+            tmp_image = new_image.clone()
+            axe_image.imshow(T.ToPILImage()(tmp_image))
+            label = torch.unique(targets[0].get_field("labels"))
+            y = 0
+            heat = torch.zeros(tmp_image.shape[1],tmp_image.shape[2])
+            small = torch.zeros(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
+            for ulb in range(len(label)):
+                tmp_prop = proposal[l][:,label[ulb]].reshape(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
+                tmp_prop = tmp_prop.view(1,1,tmp_prop.shape[0], tmp_prop.shape[1])
+                small += tmp_prop.view(tmp_prop.shape[2],tmp_prop.shape[3]).cpu()
+                tmp_prop = up(tmp_prop).view(img_size[0], img_size[1])
+                heat += tmp_prop.cpu()
+                axe_image.text(0, y, cmaps[ulb%len(cmaps)] + str(label[ulb]) + str(tmp_prop.sum()), fontsize=12)
+                y = y+12
+
+            heat_axe[l].matshow(small.cpu().numpy())
+            axe_image.matshow(heat.cpu().numpy(), alpha=0.5)
+            fpl = fpl*2
+            fig_image.savefig('test' + str(l)+'.jpg')
+        heatmap_image.savefig('heat.jpg')
         
         losses = sum(loss for loss in loss_dict.values())
 
