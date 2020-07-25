@@ -34,3 +34,4 @@ dist/
 /cocoapi
 fcos.egg-info/
 docker/
+*log.txt
