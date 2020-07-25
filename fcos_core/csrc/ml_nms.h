@@ -10,6 +10,7 @@
 at::Tensor ml_nms(const at::Tensor& dets,
                   const at::Tensor& scores,
                   const at::Tensor& labels,
+                  const at::Tensor& locations,
                   const float threshold) {
 
   if (dets.type().is_cuda()) {
@@ -17,7 +18,7 @@ at::Tensor ml_nms(const at::Tensor& dets,
     // TODO raise error if not compiled with CUDA
     if (dets.numel() == 0)
       return at::empty({0}, dets.options().dtype(at::kLong).device(at::kCPU));
-    auto b = at::cat({dets, scores.unsqueeze(1), labels.unsqueeze(1)}, 1);
+    auto b = at::cat({dets, scores.unsqueeze(1), labels.unsqueeze(1), locations}, 1);
     return ml_nms_cuda(b, threshold);
 #else
     AT_ERROR("Not compiled with GPU support");

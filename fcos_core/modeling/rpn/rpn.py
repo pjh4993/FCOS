@@ -7,6 +7,7 @@ from fcos_core.modeling import registry
 from fcos_core.modeling.box_coder import BoxCoder
 from fcos_core.modeling.rpn.retinanet.retinanet import build_retinanet
 from fcos_core.modeling.rpn.fcos.fcos import build_fcos
+from fcos_core.modeling.rpn.counter.counter import build_counter
 from .loss import make_rpn_loss_evaluator
 from .anchor_generator import make_anchor_generator
 from .inference import make_rpn_postprocessor
@@ -206,5 +207,7 @@ def build_rpn(cfg, in_channels):
         return build_fcos(cfg, in_channels)
     if cfg.MODEL.RETINANET_ON:
         return build_retinanet(cfg, in_channels)
+    if cfg.MODEL.COUNTER_ON:
+        return build_counter(cfg, in_channels)
 
     return RPNModule(cfg, in_channels)

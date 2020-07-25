@@ -7,7 +7,7 @@ import argparse
 import torch
 import time
 
-
+ 
 def pretty_print(bbox_results):
     max_label_name_len = max([len(_["label_name"]) for _ in bbox_results])
     for item in bbox_results:
