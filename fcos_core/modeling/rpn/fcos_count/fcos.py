@@ -25,7 +25,6 @@ class FCOSHead(torch.nn.Module):
         self.use_dcn_in_tower = cfg.MODEL.FCOS.USE_DCN_IN_TOWER
 
         cls_tower = []
-        bbox_tower = []
         for i in range(cfg.MODEL.FCOS.NUM_CONVS):
             if self.use_dcn_in_tower and \
                     i == cfg.MODEL.FCOS.NUM_CONVS - 1:
@@ -45,38 +44,16 @@ class FCOSHead(torch.nn.Module):
             )
             cls_tower.append(nn.GroupNorm(32, in_channels))
             cls_tower.append(nn.ReLU())
-            bbox_tower.append(
-                conv_func(
-                    in_channels,
-                    in_channels,
-                    kernel_size=3,
-                    stride=1,
-                    padding=1,
-                    bias=True
-                )
-            )
-            bbox_tower.append(nn.GroupNorm(32, in_channels))
-            bbox_tower.append(nn.ReLU())
 
         self.add_module('cls_tower', nn.Sequential(*cls_tower))
-        self.add_module('bbox_tower', nn.Sequential(*bbox_tower))
         self.cls_logits = nn.Conv2d(
-            in_channels, num_classes, kernel_size=3, stride=1,
+            in_channels, num_classes*2, kernel_size=3, stride=1,
             padding=1
         )
-        self.bbox_pred = nn.Conv2d(
-            in_channels, 4, kernel_size=3, stride=1,
-            padding=1
-        )
-        self.centerness = nn.Conv2d(
-            in_channels, 1, kernel_size=3, stride=1,
-            padding=1
-        )
-
+            
         # initialization
-        for modules in [self.cls_tower, self.bbox_tower,
-                        self.cls_logits, self.bbox_pred,
-                        self.centerness]:
+        for modules in [self.cls_tower, 
+                        self.cls_logits]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
                     torch.nn.init.normal_(l.weight, std=0.01)
@@ -87,32 +64,14 @@ class FCOSHead(torch.nn.Module):
         bias_value = -math.log((1 - prior_prob) / prior_prob)
         torch.nn.init.constant_(self.cls_logits.bias, bias_value)
 
-        self.scales = nn.ModuleList([Scale(init_value=1.0) for _ in range(5)])
-
     def forward(self, x):
         logits = []
-        bbox_reg = []
-        centerness = []
         for l, feature in enumerate(x):
             cls_tower = self.cls_tower(feature)
-            box_tower = self.bbox_tower(feature)
 
             logits.append(self.cls_logits(cls_tower))
-            if self.centerness_on_reg:
-                centerness.append(self.centerness(box_tower))
-            else:
-                centerness.append(self.centerness(cls_tower))
 
-            bbox_pred = self.scales[l](self.bbox_pred(box_tower))
-            if self.norm_reg_targets:
-                bbox_pred = F.relu(bbox_pred)
-                if self.training:
-                    bbox_reg.append(bbox_pred)
-                else:
-                    bbox_reg.append(bbox_pred * self.fpn_strides[l])
-            else:
-                bbox_reg.append(torch.exp(bbox_pred))
-        return logits, bbox_reg, centerness
+        return logits
 
 
 class FCOSModule(torch.nn.Module):
@@ -149,36 +108,31 @@ class FCOSModule(torch.nn.Module):
             losses (dict[Tensor]): the losses for the model during training. During
                 testing, it is an empty dict.
         """
-        box_cls, box_regression, centerness = self.head(features)
+        box_cls = self.head(features)
         locations = self.compute_locations(features)
  
-        if self.training:
+        if self.training: 
             return self._forward_train(
-                locations, box_cls, 
-                box_regression, 
-                centerness, targets
+                locations, box_cls, targets
             )
         else:
             return self._forward_test(
-                locations, box_cls, box_regression, 
-                centerness, images.image_sizes
+                locations, box_cls, images.image_sizes
             )
 
-    def _forward_train(self, locations, box_cls, box_regression, centerness, targets):
-        loss_box_cls, loss_box_reg, loss_centerness = self.loss_evaluator(
-            locations, box_cls, box_regression, centerness, targets
+    def _forward_train(self, locations, box_cls, targets):
+        loss_box_cls = self.loss_evaluator(
+            locations, box_cls,targets
         )
         losses = {
-            "loss_cls": loss_box_cls,
-            "loss_reg": loss_box_reg,
-            "loss_centerness": loss_centerness
+            "loss_cls": loss_box_cls
         }
-        return None, losses
+        reg_targets = self.loss_evaluator.prepare_targets(locations, targets)
+        return (box_cls, reg_targets), losses
 
-    def _forward_test(self, locations, box_cls, box_regression, centerness, image_sizes):
+    def _forward_test(self, locations, box_cls, image_sizes):
         boxes = self.box_selector_test(
-            locations, box_cls, box_regression, 
-            centerness, image_sizes
+            locations, box_cls, image_sizes
         )
         return boxes, {}
 
@@ -208,5 +162,5 @@ class FCOSModule(torch.nn.Module):
         locations = torch.stack((shift_x, shift_y), dim=1) + stride // 2
         return locations
 
-def build_fcos(cfg, in_channels):
+def build_fcos_count(cfg, in_channels):
     return FCOSModule(cfg, in_channels)

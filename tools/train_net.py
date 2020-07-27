@@ -16,7 +16,7 @@ from fcos_core.data import make_data_loader
 from fcos_core.solver import make_lr_scheduler
 from fcos_core.solver import make_optimizer
 from fcos_core.engine.inference import inference
-from fcos_core.engine.trainer_for_inf import do_train
+from fcos_core.engine.trainer import do_train
 from fcos_core.modeling.detector import build_detection_model
 from fcos_core.utils.checkpoint import DetectronCheckpointer
 from fcos_core.utils.collect_env import collect_env_info

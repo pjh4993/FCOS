@@ -70,6 +70,26 @@ def do_train(
 
         loss_dict, (proposal, GT) = model(images, targets)
 
+        size = [l_p.shape[2] * l_p.shape[3] for l_p in proposal ]
+
+        for l in range(len(GT)):
+            tmp_GT = GT[l].view(-1, 1)
+            one_hot = (tmp_GT.cpu() == torch.arange(160).reshape(1,160)).float()
+            one_hot = one_hot[:,::2] + one_hot[:,1::2]
+            GT[l] = one_hot
+        
+        for l in range(len(proposal)):
+            proposal[l] = torch.max(proposal[l].squeeze(0).permute(1,2,0), dim=2)[1].view(-1)
+        
+        for l in range(len(proposal)):
+            tmp_GT = proposal[l]
+            one_hot = (tmp_GT.unsqueeze(1).cpu() == torch.arange(160).reshape(1,160)).float()
+            one_hot = one_hot[:,::2] + one_hot[:,1::2]
+            one_hot = one_hot.reshape(size[l], -1)
+            proposal[l] = one_hot
+ 
+
+
         PIXEL_MEAN =  [-102.9801, -115.9465, -122.7717]
         PIXEL_STD = [1.0, 1.0, 1.0]
         unnorm = T.Normalize(mean=PIXEL_MEAN, std=PIXEL_STD)
@@ -82,20 +102,23 @@ def do_train(
             'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn']
         fpl = 8
         img_size = images.tensors[0].shape[1:]
+        label = torch.unique(targets[0].get_field("labels"))
         up = torch.nn.UpsamplingNearest2d(size=(img_size[0],img_size[1]))
         heatmap_image, heat_axe = plt.subplots(nrows=2, ncols=5)
+
+        heatmap_image.text(0,0,"".join(str(label.tolist())))
         for l in range(len(proposal)):
             fig_image, axe_image = plt.subplots(nrows=2, ncols=1)
             tmp_image = new_image.clone()
             axe_image[0].imshow(T.ToPILImage()(tmp_image))
             axe_image[1].imshow(T.ToPILImage()(tmp_image))
-            label = torch.unique(targets[0].get_field("labels"))
             y = 0
             heat = torch.zeros(tmp_image.shape[1],tmp_image.shape[2])
             small = torch.zeros(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
-
             heat_GT = torch.zeros(tmp_image.shape[1],tmp_image.shape[2])
             small_GT = torch.zeros(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
+
+            small = torch.zeros(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
             for ulb in range(len(label)):
                 tmp_prop = proposal[l][:,label[ulb]].reshape(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
                 tmp_prop = tmp_prop.view(1,1,tmp_prop.shape[0], tmp_prop.shape[1]).detach()

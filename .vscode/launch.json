@@ -11,7 +11,7 @@
             "program": "train_net.py",
             "console": "integratedTerminal",
             "args" : [
-                "--config-file", "configs/counter/counter_R_50_FPN_1x.yaml", "MODEL.WEIGHT", "training_dir/counter_imprv_R_50_FPN_1x/model_0002500.pth"
+                "--config-file", "configs/fcos_count/fcos_count_R_50_FPN_1x.yaml"
             ]
 
         },
