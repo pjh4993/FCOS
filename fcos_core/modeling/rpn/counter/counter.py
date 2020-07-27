@@ -147,8 +147,8 @@ class CounterModule(torch.nn.Module):
         losses = {
             "loss_count": loss_count
         }
-        #reg_targets = self.loss_evaluator.prepare_targets(locations, targets)
-        return None, losses
+        reg_targets = self.loss_evaluator.prepare_targets(locations, targets)
+        return (obj_count, reg_targets), losses
 
     def _forward_test(self, locations, obj_count, image_sizes):
         """

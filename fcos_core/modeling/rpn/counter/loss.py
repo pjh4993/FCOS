@@ -44,7 +44,7 @@ class CounterLossComputation(object):
             cfg.MODEL.FCOS.LOSS_ALPHA
         )
         """
-        self.cls_loss_func = nn.SmoothL1Loss(reduction="mean")
+        self.cls_loss_func = nn.SmoothL1Loss(reduction="sum")
         self.fpn_strides = cfg.MODEL.FCOS.FPN_STRIDES
         self.center_sampling_radius = cfg.MODEL.FCOS.CENTER_SAMPLING_RADIUS
         self.iou_loss_type = cfg.MODEL.FCOS.IOU_LOSS_TYPE
@@ -235,16 +235,15 @@ class CounterLossComputation(object):
         reg_targets_flatten = torch.cat(reg_targets_flatten, dim=0)
         
         num_gpus = get_num_gpus()
-        """
+        pos_inds = torch.nonzero(reg_targets_flatten > 0).squeeze(1)
         # sync num_pos from all gpus
         total_num_pos = reduce_sum(pos_inds.new_tensor([pos_inds.numel()])).item()
         num_pos_avg_per_gpu = max(total_num_pos / float(num_gpus), 1.0)
-        """
 
         cls_loss = self.cls_loss_func(
             object_count_flatten,
             reg_targets_flatten
-        )# / num_pos_avg_per_gpu
+        ) / num_pos_avg_per_gpu
         return cls_loss
 
 

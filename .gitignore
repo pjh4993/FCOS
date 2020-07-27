@@ -35,3 +35,4 @@ dist/
 fcos.egg-info/
 docker/
 *log.txt
+training_dir/

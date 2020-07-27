@@ -68,7 +68,7 @@ def do_train(
         images = images.to(device)
         targets = [target.to(device) for target in targets]
 
-        loss_dict, proposal = model(images, targets)
+        loss_dict, (proposal, GT) = model(images, targets)
 
         PIXEL_MEAN =  [-102.9801, -115.9465, -122.7717]
         PIXEL_STD = [1.0, 1.0, 1.0]
@@ -83,29 +83,43 @@ def do_train(
         fpl = 8
         img_size = images.tensors[0].shape[1:]
         up = torch.nn.UpsamplingNearest2d(size=(img_size[0],img_size[1]))
-        heatmap_image, heat_axe = plt.subplots(nrows=1, ncols=5)
+        heatmap_image, heat_axe = plt.subplots(nrows=2, ncols=5)
         for l in range(len(proposal)):
-            fig_image, axe_image = plt.subplots(nrows=1, ncols=1)
+            fig_image, axe_image = plt.subplots(nrows=2, ncols=1)
             tmp_image = new_image.clone()
-            axe_image.imshow(T.ToPILImage()(tmp_image))
+            axe_image[0].imshow(T.ToPILImage()(tmp_image))
+            axe_image[1].imshow(T.ToPILImage()(tmp_image))
             label = torch.unique(targets[0].get_field("labels"))
             y = 0
             heat = torch.zeros(tmp_image.shape[1],tmp_image.shape[2])
             small = torch.zeros(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
+
+            heat_GT = torch.zeros(tmp_image.shape[1],tmp_image.shape[2])
+            small_GT = torch.zeros(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
             for ulb in range(len(label)):
                 tmp_prop = proposal[l][:,label[ulb]].reshape(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
-                tmp_prop = tmp_prop.view(1,1,tmp_prop.shape[0], tmp_prop.shape[1])
+                tmp_prop = tmp_prop.view(1,1,tmp_prop.shape[0], tmp_prop.shape[1]).detach()
                 small += tmp_prop.view(tmp_prop.shape[2],tmp_prop.shape[3]).cpu()
                 tmp_prop = up(tmp_prop).view(img_size[0], img_size[1])
                 heat += tmp_prop.cpu()
-                axe_image.text(0, y, cmaps[ulb%len(cmaps)] + str(label[ulb]) + str(tmp_prop.sum()), fontsize=12)
-                y = y+12
 
-            heat_axe[l].matshow(small.cpu().numpy())
-            axe_image.matshow(heat.cpu().numpy(), alpha=0.5)
+                tmp_prop = GT[l][:,label[ulb]].reshape(img_size[0]//fpl + (img_size[0]%fpl > 0), img_size[1]//fpl + (img_size[1]%fpl > 0))
+                tmp_prop = tmp_prop.view(1,1,tmp_prop.shape[0], tmp_prop.shape[1]).detach()
+                small_GT += tmp_prop.view(tmp_prop.shape[2],tmp_prop.shape[3]).cpu()
+                tmp_prop = up(tmp_prop).view(img_size[0], img_size[1])
+                heat_GT += tmp_prop.cpu()
+               
+                #axe_image.text(0, y, cmaps[ulb%len(cmaps)] + str(label[ulb]) + str(tmp_prop.sum()), fontsize=12)
+                #y = y+12
+
+            heat_axe[0,l].matshow(small.cpu().numpy())
+            heat_axe[1,l].matshow(small_GT.cpu().numpy())
+            axe_image[0].matshow(heat.cpu().numpy(), alpha=0.5)
+            axe_image[1].matshow(heat_GT.cpu().numpy(), alpha=0.5)
             fpl = fpl*2
             fig_image.savefig('test' + str(l)+'.jpg')
         heatmap_image.savefig('heat.jpg')
+        exit()
         
         losses = sum(loss for loss in loss_dict.values())
 
