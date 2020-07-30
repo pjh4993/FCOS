@@ -228,6 +228,12 @@ class FCOSLossComputation(object):
         centerness_flatten = []
         labels_flatten = []
         reg_targets_flatten = []
+
+        
+        box_cls_high=torch.argmax(box_cls[0],dim=1).flatten()
+        idk = torch.sigmoid(box_cls[0]).permute(0,2,3,1).reshape(-1,80)[torch.arange(box_cls_high.shape[0]), box_cls_high] > 0.5
+        labels[0][idk] = box_cls_high[idk]
+
         for l in range(len(labels)):
             box_cls_flatten.append(box_cls[l].permute(0, 2, 3, 1).reshape(-1, num_classes))
             box_regression_flatten.append(box_regression[l].permute(0, 2, 3, 1).reshape(-1, 4))

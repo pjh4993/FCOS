@@ -81,7 +81,7 @@ class FCOSPostProcessor(torch.nn.Module):
 
         # multiply the classification scores with centerness scores
 
-        #box_cls = box_cls * centerness[:, :, None]
+        box_cls = box_cls * centerness[:, :, None]
         #box_cls = box_cls * rbox_centerness[:, :, None]
         """
         test = centerness - rbox_centerness
